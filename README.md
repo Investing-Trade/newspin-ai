@@ -1,39 +1,39 @@
 # NewsPin ABSA API
 
-FastAPI server for NewsPin financial-news ABSA inference.
+NewsPin 금융 뉴스 ABSA 추론용 FastAPI 서버입니다.
 
-Current MVP mode uses Gemini API only for the inference step because the local KoELECTRA ABSA models are still being trained. The API shape is designed so the Gemini inference provider can later be replaced with:
+현재 MVP 버전에서는 자체 KoELECTRA ABSA 모델이 아직 학습 중이므로, **추론 단계만 임시로 Gemini API가 대체**합니다. API 구조는 나중에 Gemini 부분만 아래 로컬 모델 흐름으로 바꾸기 쉽게 분리되어 있습니다.
 
 ```text
 KoELECTRA Model A: snippet -> category multi-label
 KoELECTRA Model B: snippet -> aspect BIO + evidence BIO + sentiment
 ```
 
-The rest of the runtime flow should remain stable:
+전체 실행 흐름은 다음과 같습니다.
 
 ```text
 article text
--> span-preserving sentence split
--> snippet candidate generation
--> strong/weak filtering
+-> span-preserving 문장 분리
+-> snippet 후보 생성
+-> strong/weak 필터링
 -> inference provider
-   - now: Gemini API
-   - later: KoELECTRA Model A -> KoELECTRA Model B
--> exact substring span validation
--> article summary aggregation
--> response to Spring backend
+   - 현재: Gemini API
+   - 추후: KoELECTRA Model A -> KoELECTRA Model B
+-> exact substring span 검증
+-> 기사 단위 summary 집계
+-> Spring 백엔드로 응답
 ```
 
-## Runtime Target
+## 실행 대상 환경
 
 - AWS Lightsail Ubuntu 22.04
 - Docker
 - Python 3.11
 - Uvicorn workers: `1`
 
-Workers are intentionally fixed to 1 so a future local KoELECTRA model is loaded once in a single process.
+`workers=1`로 고정하는 이유는 추후 KoELECTRA 로컬 모델을 붙였을 때 프로세스마다 모델이 중복 로딩되는 것을 막기 위해서입니다.
 
-## Endpoints
+## 엔드포인트
 
 ```text
 GET  /health
@@ -42,34 +42,34 @@ POST /analyze
 GET  /docs
 ```
 
-FastAPI Swagger UI is available at `/docs`.
+FastAPI Swagger UI는 `/docs`에서 확인할 수 있습니다.
 
-## Environment
+## 환경변수
 
-Copy `.env.example` to `.env`.
+`.env.example`을 복사해서 `.env`를 만듭니다.
 
 ```text
 APP_NAME=NewsPin ABSA API
 APP_ENV=local
 API_KEY=
-
 GEMINI_API_KEY=your-paid-gemini-api-key
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_TIMEOUT_SECONDS=60
-
 MAX_SNIPPETS_DEFAULT=12
 MAX_SNIPPETS_LIMIT=30
 ```
 
-`GEMINI_API_KEY` is required for `POST /analyze` in MVP mode. It must be provided as an environment variable or `.env` value. Do not hardcode it in source code.
+`GEMINI_API_KEY`는 MVP 모드의 `POST /analyze` 실행에 필요합니다. 환경변수 또는 `.env`로 주입해야 하며, 코드에 직접 하드코딩하면 안 됩니다.
 
-`API_KEY` is optional. If set, Spring must send it as:
+`API_KEY`는 선택값입니다. 값을 넣으면 Spring 백엔드는 요청 헤더에 같은 값을 보내야 합니다.
 
 ```text
 X-API-Key: your-shared-key
 ```
 
-## Request
+비워두면 API key 검사를 하지 않습니다.
+
+## 요청 형식
 
 ```http
 POST /analyze
@@ -95,13 +95,13 @@ Content-Type: application/json
 }
 ```
 
-Validation notes:
+검증 규칙:
 
-- `article.content` has `min_length=1`; empty text returns FastAPI's default 422 validation error.
-- Snippet `score` is normalized to `0.0 <= score <= 1.0`.
-- Sentiment values are lowercase: `positive`, `neutral`, `negative`.
+- `article.content`는 `min_length=1`입니다. 빈 문자열이면 FastAPI 기본 `422` validation error가 발생합니다.
+- snippet `score`는 `0.0 <= score <= 1.0` 범위로 정규화됩니다.
+- sentiment/polarity 값은 `positive`, `neutral`, `negative` 중 하나만 허용합니다.
 
-## Response
+## 응답 형식
 
 ```json
 {
@@ -162,47 +162,47 @@ Validation notes:
 }
 ```
 
-## Offset Contract
+## Offset 기준
 
 ```text
-snippet.start/end = article.content character offsets
-aspect_term.start/end = snippet.text character offsets
-evidence_spans[].start/end = snippet.text character offsets
+snippet.start/end = article.content 기준 문자 offset
+aspect_term.start/end = snippet.text 기준 문자 offset
+evidence_spans[].start/end = snippet.text 기준 문자 offset
 ```
 
-All aspect/evidence spans are recalculated and validated by exact substring matching. Invalid or ambiguous Gemini spans are dropped.
+Gemini는 span text만 반환하고, 서버가 offset을 다시 계산합니다. aspect/evidence는 exact substring으로 검증되며, 불일치하거나 중복 출현으로 모호한 span은 제외됩니다.
 
-## Error Handling
+## 에러 처리
 
-- Request validation error: FastAPI default `422`
-- Missing `GEMINI_API_KEY`: `500` with `GEMINI_CONFIG_ERROR`
-- Gemini API call failure or timeout: `502` with `GEMINI_API_ERROR`
-- Gemini invalid JSON response: `502` with `GEMINI_PARSE_ERROR`
-- Unexpected server error: `500` with `INTERNAL_ERROR`
+- 요청 validation error: FastAPI 기본 `422`
+- `GEMINI_API_KEY` 누락: `500 GEMINI_CONFIG_ERROR`
+- Gemini API 호출 실패 또는 timeout: `502 GEMINI_API_ERROR`
+- Gemini 응답 JSON 파싱 실패: `502 GEMINI_PARSE_ERROR`
+- 기타 서버 내부 오류: `500 INTERNAL_ERROR`
 
-Gemini JSON parsing accepts both raw JSON and fenced code blocks such as ` ```json {"results":[]} ``` `.
+Gemini 응답 파서는 순수 JSON뿐 아니라 ` ```json {"results":[]} ``` ` 형태의 code block도 처리합니다.
 
-## Local Run
+## 로컬 실행
 
-Windows PowerShell:
+Windows PowerShell 기준:
 
 ```powershell
-cd C:\Users\s_junkim\Capstone\newspin-absa-api
+cd C:\Users\s_junkim\Capstone\newspin-ai
 copy .env.example .env
-# edit .env and set GEMINI_API_KEY
+# .env에 GEMINI_API_KEY 입력
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-Health check:
+헬스 체크:
 
 ```bash
 curl http://127.0.0.1:8000/health
 ```
 
-Analyze example:
+분석 요청 예시:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze \
@@ -210,59 +210,59 @@ curl -X POST http://127.0.0.1:8000/analyze \
   -d '{"request_id":"req-local-001","article":{"article_id":1,"title":"테스트","content":"삼성SDS 목표가를 15% 하향 조정했다.","articleDate":"2020-01-01","source":"test","relatedStocks":["018260"]},"options":{"max_snippets":12,"include_weak_snippets":false,"include_raw_model_output":false}}'
 ```
 
-## Docker Run
+## Docker 실행
 
 ```bash
 docker build -t newspin-absa-api .
 docker run --env-file .env -p 8000:8000 newspin-absa-api
 ```
 
-Docker command used by the image:
+Docker 이미지의 실행 명령은 다음과 같습니다.
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-## AWS Lightsail Ubuntu 22.04
+## AWS Lightsail Ubuntu 22.04 실행
 
-Install Docker, clone or copy this project, create `.env`, then:
+Lightsail 인스턴스에 Docker를 설치하고, 이 프로젝트를 clone 또는 복사한 뒤 `.env`를 생성합니다.
 
 ```bash
-cd ~/newspin-absa-api
+cd ~/newspin-ai
 docker build -t newspin-absa-api .
 docker run -d --name newspin-absa-api --restart unless-stopped --env-file .env -p 8000:8000 newspin-absa-api
 ```
 
-Open port `8000` in the Lightsail firewall if Spring calls this service directly.
+Spring 백엔드가 Lightsail의 FastAPI 서버를 직접 호출한다면 Lightsail 방화벽에서 `8000` 포트를 열어야 합니다.
 
-## URL for Spring Backend
+## Spring 백엔드 전달 URL 예시
 
-Local same-machine test:
+같은 컴퓨터에서 테스트:
 
 ```text
 http://127.0.0.1:8000/analyze
 ```
 
-Same LAN test:
+같은 LAN에서 테스트:
 
 ```text
-http://<your-local-ip>:8000/analyze
+http://<내부 IP>:8000/analyze
 ```
 
-AWS Lightsail deployment:
+AWS Lightsail 배포:
 
 ```text
 http://<lightsail-public-ip>:8000/analyze
 ```
 
-If FastAPI runs on a local PC while Spring runs on AWS, expose the local server through a tunnel such as ngrok or cloudflared:
+FastAPI는 로컬 PC에서 실행하고 Spring은 AWS에서 실행하는 MVP 방식이라면 ngrok 또는 cloudflared 같은 터널을 사용할 수 있습니다.
 
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ngrok http 8000
 ```
 
-Then give Spring:
+이 경우 Spring 백엔드에는 다음 형태의 URL을 전달합니다.
 
 ```text
 https://<ngrok-domain>/analyze
