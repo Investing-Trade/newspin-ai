@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+API_PREFIX = "/api/v1"
 
 
 def check_api_key(x_api_key: str | None) -> None:
@@ -40,12 +41,12 @@ def check_api_key(x_api_key: str | None) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get(f"{API_PREFIX}/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
-@app.get("/model-info", response_model=ModelInfoResponse)
+@app.get(f"{API_PREFIX}/model-info", response_model=ModelInfoResponse)
 async def model_info() -> ModelInfoResponse:
     settings = get_settings()
     return ModelInfoResponse(
@@ -57,7 +58,7 @@ async def model_info() -> ModelInfoResponse:
     )
 
 
-@app.post("/analyze", response_model=AnalyzeResponse)
+@app.post(f"{API_PREFIX}/analyze", response_model=AnalyzeResponse)
 async def analyze(
     payload: AnalyzeRequest,
     request: Request,

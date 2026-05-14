@@ -36,9 +36,9 @@ article text
 ## 엔드포인트
 
 ```text
-GET  /health
-GET  /model-info
-POST /analyze
+GET  /api/v1/health
+GET  /api/v1/model-info
+POST /api/v1/analyze
 GET  /docs
 ```
 
@@ -59,7 +59,7 @@ MAX_SNIPPETS_DEFAULT=12
 MAX_SNIPPETS_LIMIT=30
 ```
 
-`GEMINI_API_KEY`는 MVP 모드의 `POST /analyze` 실행에 필요합니다. 환경변수 또는 `.env`로 주입해야 하며, 코드에 직접 하드코딩하면 안 됩니다.
+`GEMINI_API_KEY`는 MVP 모드의 `POST /api/v1/analyze` 실행에 필요합니다. 환경변수 또는 `.env`로 주입해야 하며, 코드에 직접 하드코딩하면 안 됩니다.
 
 `API_KEY`는 선택값입니다. 값을 넣으면 Spring 백엔드는 요청 헤더에 같은 값을 보내야 합니다.
 
@@ -72,7 +72,7 @@ X-API-Key: your-shared-key
 ## 요청 형식
 
 ```http
-POST /analyze
+POST /api/v1/analyze
 Content-Type: application/json
 ```
 
