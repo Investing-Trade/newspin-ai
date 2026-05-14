@@ -1,12 +1,15 @@
-﻿# Python
+.env
+.venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
-.venv/
-.env
-
-# IDE
-.vscode/
-.idea/
-
-# OS
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
 .DS_Store
+Thumbs.db
