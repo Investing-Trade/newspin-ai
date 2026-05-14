@@ -1,11 +1,8 @@
 # newspin-ai
 
-NewsPin AI service repository.
 
-Current active development branch:
-
+자체 모델 아니라 gemini api로 임시(연동 확인용)
 ```text
 feature/gemini-inference
 ```
 
-That branch contains the temporary Gemini API based FastAPI server for Spring backend integration testing. The final KoELECTRA based implementation will be developed on a separate branch and merged into `main` later.
