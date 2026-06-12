@@ -1,0 +1,12 @@
+.git
+.env
+.venv
+venv
+env
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+models
+fastapi_model_handoff
